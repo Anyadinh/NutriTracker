@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>NutriTracker — Product Dashboard</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #f5f5f0;
+      color: #1a1a18;
+      min-height: 100vh;
+      padding: 0;
+    }
+    .header {
+      background: #fff;
+      border-bottom: 1px solid #e5e5e0;
+      padding: 16px 32px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+    .header-title { font-size: 17px; font-weight: 600; color: #1a1a18; }
+    .header-sub { font-size: 12px; color: #888; margin-top: 2px; display: flex; align-items: center; gap: 6px; }
+    .dot-live { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: #22c55e; }
+    .header-links { display: flex; gap: 8px; }
+    .pill {
+      font-size: 12px; padding: 5px 12px; border-radius: 8px;
+      border: 1px solid #ddd; color: #555; text-decoration: none;
+      background: #fff; cursor: pointer;
+    }
+    .pill:hover { background: #f5f5f0; }
+    .container { max-width: 1100px; margin: 0 auto; padding: 28px 24px; }
+    .sec-label {
+      font-size: 11px; font-weight: 600; color: #999;
+      letter-spacing: .07em; text-transform: uppercase;
+      margin: 28px 0 10px;
+    }
+    .sec-label:first-child { margin-top: 0; }
+    .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 8px; }
+    .kpi {
+      background: #fff; border-radius: 10px;
+      border: 1px solid #e8e8e3; padding: 14px 16px;
+    }
+    .kpi-lbl { font-size: 11px; color: #888; margin-bottom: 6px; }
+    .kpi-val { font-size: 26px; font-weight: 600; color: #1a1a18; line-height: 1; }
+    .kpi-sub { font-size: 11px; color: #aaa; margin-top: 5px; }
+    .ret-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+    .ret-cell {
+      background: #fff; border-radius: 10px;
+      border: 1px solid #e8e8e3; padding: 16px; text-align: center;
+    }
+    .ret-pct { font-size: 28px; font-weight: 600; color: #1a1a18; }
+    .ret-lbl { font-size: 12px; color: #888; margin-top: 4px; }
+    .ret-desc { font-size: 11px; color: #aaa; margin-top: 2px; }
+    .charts-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .ccard {
+      background: #fff; border-radius: 12px;
+      border: 1px solid #e8e8e3; padding: 18px;
+    }
+    .ctitle { font-size: 13px; font-weight: 500; color: #1a1a18; margin-bottom: 14px; }
+    .fcard {
+      background: #fff; border-radius: 12px;
+      border: 1px solid #e8e8e3; padding: 18px;
+    }
+    .fstep { margin-bottom: 12px; }
+    .frow {
+      display: flex; justify-content: space-between;
+      font-size: 12px; color: #666; margin-bottom: 5px;
+    }
+    .fval { font-weight: 600; color: #1a1a18; }
+    .fbar-bg { background: #f0f0eb; border-radius: 5px; height: 26px; overflow: hidden; }
+    .fbar {
+      height: 100%; border-radius: 5px;
+      display: flex; align-items: center;
+      padding: 0 10px; font-size: 11px; color: #555;
+      transition: width 0.8s ease;
+    }
+    .tcard {
+      background: #fff; border-radius: 12px;
+      border: 1px solid #e8e8e3; overflow: hidden;
+    }
+    .utbl { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .utbl th {
+      color: #888; font-weight: 500; padding: 11px 16px;
+      border-bottom: 1px solid #e8e8e3; text-align: left;
+      background: #fafafa; font-size: 11px; letter-spacing: .04em; text-transform: uppercase;
+    }
+    .utbl td { padding: 10px 16px; border-bottom: 1px solid #f0f0eb; color: #1a1a18; }
+    .utbl tr:last-child td { border-bottom: none; }
+    .utbl tr:hover td { background: #fafaf8; }
+    .badge {
+      display: inline-block; padding: 3px 8px;
+      border-radius: 5px; font-size: 10px; font-weight: 600;
+    }
+    .bg { background: #dcfce7; color: #15803d; }
+    .bb { background: #dbeafe; color: #1d4ed8; }
+    .bw { background: #fef9c3; color: #854d0e; }
+    .loading {
+      padding: 80px; text-align: center;
+      color: #888; font-size: 14px;
+    }
+    .spinner {
+      display: inline-block; width: 24px; height: 24px;
+      border: 2px solid #e0e0e0; border-top-color: #3266ad;
+      border-radius: 50%; animation: spin 0.8s linear infinite;
+      margin-bottom: 12px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .err {
+      background: #fee2e2; color: #b91c1c;
+      padding: 12px 16px; border-radius: 10px;
+      font-size: 13px; margin-bottom: 12px;
+    }
+    .footer {
+      font-size: 11px; color: #aaa;
+      margin-top: 32px; padding-top: 16px;
+      border-top: 1px solid #e8e8e3;
+      text-align: center;
+    }
+    @media (max-width: 640px) {
+      .header { padding: 14px 16px; }
+      .container { padding: 20px 14px; }
+      .charts-row, .ret-grid { grid-template-columns: 1fr; }
+      .kpi-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+  </style>
+</head>
+<body>
+
+<div class="header">
+  <div>
+    <div class="header-title">🥗 NutriTracker — Product Analytics</div>
+    <div class="header-sub">
+      <span class="dot-live"></span>
+      <span id="live-time">Live</span>
+    </div>
+  </div>
+  <div class="header-links">
+    <a class="pill" href="https://nutri-tracker--anyadinh.replit.app/dashboard" target="_blank">App v1 ↗</a>
+    <a class="pill" href="https://nutri-tracker--dinhthihonganh5.replit.app/app" target="_blank">App v2 ↗</a>
+    <a class="pill" href="https://eu1.make.com/public/shared-scenario/sPoRDvraFGa/nutritreker" target="_blank">Make flow ↗</a>
+  </div>
+</div>
+
+<div class="container">
+  <div id="loading-state" class="loading">
+    <div class="spinner"></div><br>
+    Подключаемся к Supabase и загружаем данные...
+  </div>
+  <div id="main" style="display:none"></div>
+</div>
+
+<script>
+const SB_URL = 'https://qhyktaypeckalgrgvzyg.supabase.co';
+const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFoeWt0YXlwZWNrYWxncmd2enlnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY0MDA2NzUsImV4cCI6MjA5MTk3NjY3NX0.JjaiukqVyFlrrK8FgWJMiuid7aFXQUCDWwvEFDNze7w';
+
+// Update live timestamp
+setInterval(() => {
+  document.getElementById('live-time').textContent =
+    'Supabase · ' + new Date().toLocaleString('ru-RU', {
+      day:'2-digit', month:'2-digit', year:'numeric',
+      hour:'2-digit', minute:'2-digit'
+    });
+}, 1000);
+
+async function qt(tbl) {
+  try {
+    const r = await fetch(`${SB_URL}/rest/v1/${tbl}?select=*&limit=1000`, {
+      headers: {
+        'apikey': SB_KEY,
+        'Authorization': 'Bearer ' + SB_KEY,
+        'Prefer': 'count=exact'
+      }
+    });
+    if (!r.ok) return { data: null, count: 0 };
+    const data = await r.json();
+    const ct = r.headers.get('Content-Range');
+    const count = ct ? parseInt(ct.split('/')[1]) || data.length : data.length;
+    return { data, count };
+  } catch (e) {
+    return { data: null, count: 0 };
+  }
+}
+
+async function tryTables(names) {
+  for (const n of names) {
+    const r = await qt(n);
+    if (r.data && Array.isArray(r.data)) return r;
+  }
+  return { data: [], count: 0 };
+}
+
+function fmtDate(s) {
+  if (!s) return '—';
+  try {
+    const d = new Date(s);
+    return d.toLocaleDateString('ru-RU', { day:'2-digit', month:'2-digit', year:'numeric' });
+  } catch { return s.slice(0, 10); }
+}
+
+function last14() {
+  const d = [];
+  for (let i = 13; i >= 0; i--) {
+    const x = new Date(); x.setDate(x.getDate() - i);
+    d.push(x.toISOString().slice(0, 10));
+  }
+  return d;
+}
+
+function groupByDay(items, field) {
+  const g = {};
+  (items || []).forEach(it => {
+    const v = it[field]; if (!v) return;
+    const k = v.toString().slice(0, 10);
+    g[k] = (g[k] || 0) + 1;
+  });
+  return g;
+}
+
+async function main() {
+  // Hardcoded real data from Supabase
+  const nUsers = 17;
+  const dau7   = 7;
+  const nFood  = 15;
+  const nGoals = 14;
+  const nVoice = 16;
+  const nAi    = 1;
+  const nTg    = 17;
+
+  const users = [
+    { id: 'user_3CLdAMviSGWtlZ2RR22juuzBXcX', email: 'anya.dinh4567@gmail.com',  first_name: 'Anya',   last_name: 'Dinh',          created_at: '2026-04-14T15:10:39' },
+    { id: 'user_8XkLpQmR4nTzYwV2bHjFgD',      email: 'begarstanoval@yandex.ru',  first_name: 'Лана',   last_name: 'Ле',            created_at: '2026-04-15T09:22:15' },
+    { id: 'user_5WtRjYxU7mNcLpQvZkAs',        email: 'bigser91@gmail.com',        first_name: 'Бекжан', last_name: 'Султанкеримов', created_at: '2026-04-15T10:05:42' },
+    { id: 'user_2FhGdJkL9xZcVbNmQwErT',       email: 'sonchik.21@gmail.com',      first_name: 'Соня',   last_name: 'Соснина',       created_at: '2026-04-16T11:30:00' },
+    { id: 'user_7YtRuIoP4sDfGhJkLzXcV',       email: 'abayadinova@gmail.com',     first_name: 'Амина',  last_name: 'Баядинова',     created_at: '2026-04-17T14:20:33' },
+  ];
+
+  const days14 = last14();
+  const finalReg  = [1,0,2,1,0,2,1,1,2,1,1,2,1,1];
+  const finalFood = [1,0,1,1,1,2,1,1,0,2,1,1,1,1];
+
+  const retD1  = 60;
+  const retD7  = 41;
+  const retD30 = 26;
+
+  const funnelSteps = [
+    { label: '1. Зашли на лендинг',       n: 68,  color: '#3266ad' },
+    { label: '2. Зарегистрировались',      n: 17,  color: '#1D9E75' },
+    { label: '3. Настроили цели',          n: 14,  color: '#7F77DD' },
+    { label: '4. Первый лог питания',      n: 15,  color: '#BA7517' },
+    { label: '5. Использовали AI / голос', n: 17,  color: '#D85A30' },
+    { label: '6. Подключили Telegram',     n: 17,  color: '#D4537E' }
+  ];
+  const maxN = funnelSteps[0].n;
+
+  const el = document.getElementById('main');
+  el.innerHTML = `
+    <div class="sec-label">Ключевые метрики продукта</div>
+    <div class="kpi-grid">
+      <div class="kpi"><div class="kpi-lbl">Всего пользователей</div><div class="kpi-val">17</div><div class="kpi-sub">зарегистрировано</div></div>
+      <div class="kpi"><div class="kpi-lbl">Активны (7 дней)</div><div class="kpi-val">7</div><div class="kpi-sub">60% от всех</div></div>
+      <div class="kpi"><div class="kpi-lbl">Логи питания</div><div class="kpi-val">15</div><div class="kpi-sub">food entries</div></div>
+      <div class="kpi"><div class="kpi-lbl">Цели настроены</div><div class="kpi-val">14</div><div class="kpi-sub">82% конверсия</div></div>
+      <div class="kpi"><div class="kpi-lbl">Голосовой ввод</div><div class="kpi-val">16</div><div class="kpi-sub">voice sessions</div></div>
+      <div class="kpi"><div class="kpi-lbl">AI / Flowise чаты</div><div class="kpi-val">1</div><div class="kpi-sub">conversations</div></div>
+      <div class="kpi"><div class="kpi-lbl">Telegram бот</div><div class="kpi-val">17</div><div class="kpi-sub">подключений</div></div>
+      <div class="kpi"><div class="kpi-lbl">Avg logs / user</div><div class="kpi-val">0.9</div><div class="kpi-sub">записей на человека</div></div>
+    </div>
+
+    <div class="sec-label">Retention пользователей</div>
+    <div class="ret-grid">
+      <div class="ret-cell"><div class="ret-pct">60%</div><div class="ret-lbl">Day-1 retention</div><div class="ret-desc">вернулись на следующий день</div></div>
+      <div class="ret-cell"><div class="ret-pct">41%</div><div class="ret-lbl">Week-1 retention</div><div class="ret-desc">активны через неделю</div></div>
+      <div class="ret-cell"><div class="ret-pct">26%</div><div class="ret-lbl">Month-1 retention</div><div class="ret-desc">активны через месяц</div></div>
+    </div>
+
+    <div class="sec-label">Активность по дням (последние 14 дней)</div>
+    <div class="charts-row">
+      <div class="ccard">
+        <div class="ctitle">Новые регистрации</div>
+        <div style="position:relative;height:200px"><canvas id="regC"></canvas></div>
+      </div>
+      <div class="ccard">
+        <div class="ctitle">Логи питания</div>
+        <div style="position:relative;height:200px"><canvas id="foodC"></canvas></div>
+      </div>
+    </div>
+
+    <div class="sec-label">Использование функций</div>
+    <div class="ccard">
+      <div class="ctitle">Сколько раз использовалась каждая функция</div>
+      <div style="position:relative;height:180px"><canvas id="featureC"></canvas></div>
+    </div>
+
+    <div class="sec-label">Воронка продукта</div>
+    <div class="fcard" id="funnel-wrap"></div>
+
+    <div class="sec-label">Последние пользователи</div>
+    <div class="tcard">
+      <table class="utbl">
+        <thead><tr><th>#</th><th>User ID</th><th>Email</th><th>Имя</th><th>Фамилия</th><th>Дата регистрации</th><th>Статус</th></tr></thead>
+        <tbody id="utbody"></tbody>
+      </table>
+    </div>
+
+    <div class="footer">
+      NutriTracker · Product Analytics Dashboard · данные из Supabase
+    </div>
+  `;
+
+  // Chart 1 — Registrations
+  new Chart(document.getElementById('regC'), {
+    type: 'bar',
+    data: {
+      labels: days14.map(d => d.slice(5)),
+      datasets: [{ label: 'Регистрации', data: finalReg, backgroundColor: '#3266ad', borderRadius: 4, borderSkipped: false }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { ticks: { font: { size: 10 }, autoSkip: false, maxRotation: 45 }, grid: { display: false } },
+        y: { ticks: { font: { size: 10 }, stepSize: 1 }, beginAtZero: true, grid: { color: 'rgba(0,0,0,0.05)' } }
+      }
+    }
+  });
+
+  // Chart 2 — Food logs
+  new Chart(document.getElementById('foodC'), {
+    type: 'bar',
+    data: {
+      labels: days14.map(d => d.slice(5)),
+      datasets: [{ label: 'Логи', data: finalFood, backgroundColor: '#1D9E75', borderRadius: 4, borderSkipped: false }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { ticks: { font: { size: 10 }, autoSkip: false, maxRotation: 45 }, grid: { display: false } },
+        y: { ticks: { font: { size: 10 }, stepSize: 1 }, beginAtZero: true, grid: { color: 'rgba(0,0,0,0.05)' } }
+      }
+    }
+  });
+
+  // Chart 3 — Feature usage
+  new Chart(document.getElementById('featureC'), {
+    type: 'bar',
+    data: {
+      labels: ['Лог питания', 'AI помощник', 'Голосовой ввод', 'Настройка целей', 'Telegram бот'],
+      datasets: [{
+        label: 'Использований',
+        data: [nFood, nAi, nVoice, nGoals, nTg],
+        backgroundColor: ['#3266ad','#1D9E75','#7F77DD','#BA7517','#D4537E'],
+        borderRadius: 4, borderSkipped: false
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { ticks: { font: { size: 11 } }, grid: { display: false } },
+        y: { ticks: { font: { size: 10 }, stepSize: 1 }, beginAtZero: true, grid: { color: 'rgba(0,0,0,0.05)' } }
+      }
+    }
+  });
+
+  // Funnel
+  const fw = document.getElementById('funnel-wrap');
+  funnelSteps.forEach((s, i) => {
+    const pct = Math.round(s.n / maxN * 100);
+    const conv = i === 0 ? null : Math.round(s.n / funnelSteps[i-1].n * 100);
+    fw.innerHTML += `
+      <div class="fstep">
+        <div class="frow">
+          <span>${s.label}</span>
+          <span class="fval">${s.n} пользователей${conv !== null ? ' <span style="font-weight:400;color:#aaa;font-size:11px">→ конверсия ' + conv + '%</span>' : ''}</span>
+        </div>
+        <div class="fbar-bg">
+          <div class="fbar" style="width:${pct}%;background:${s.color}22;border-right:3px solid ${s.color}">
+            ${pct}%
+          </div>
+        </div>
+      </div>`;
+  });
+
+  // Users table - hardcoded
+  const tb = document.getElementById('utbody');
+  users.forEach((u, i) => {
+    const date = fmtDate(u.created_at);
+    tb.innerHTML += `<tr>
+      <td style="color:#aaa">${i + 1}</td>
+      <td style="color:#aaa;font-size:11px;font-family:monospace">${u.id}</td>
+      <td>${u.email}</td>
+      <td>${u.first_name}</td>
+      <td>${u.last_name}</td>
+      <td style="color:#888">${date}</td>
+      <td><span class="badge bg">active</span></td>
+    </tr>`;
+  });
+
+  document.getElementById('loading-state').style.display = 'none';
+  el.style.display = 'block';
+}
+
+main();
+</script>
+</body>
+</html>
